@@ -32,7 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('-x', '--apiversion', help='Avi API version')
     parser.add_argument('-i', '--inventorytype',
                         help='Inventory type (vs, pool, pooldetail, se)',
-                        choices=['vs', 'pool', 'pooldetail', 'se'],
+                        choices=['vs', 'pool', 'pooldetail', 'se', 'sedetail'],
                         default='vs')
     parser.add_argument('-f', '--file', help='Output to named CSV file ')
 
@@ -193,10 +193,18 @@ if __name__ == '__main__':
                        '#Servers', 'State', 'Health Score', 'Virtual Services']
             if inventory_type == 'pooldetail':
                 headers.extend(['Servers', 'Service Engines'])
-        elif inventory_type == 'se':
+        elif inventory_type in ('se', 'sedetail'):
+            if inventory_type == 'sedetail':
+                s_objects = api.get_objects_iter('serviceengine',
+                                    params={'include_name': True,
+                                    'fields': 'resources'},
+                                    tenant=tenant)
+                s_details = {s['uuid']: s['resources'] for s in s_objects}
+
             s_inventory = api.get_objects_iter('serviceengine-inventory',
                                                params={'include_name': True},
                                                tenant=tenant)
+
             for s in s_inventory:
                 s_config = s['config']
                 s_runtime = s['runtime']
@@ -215,13 +223,27 @@ if __name__ == '__main__':
                 s_vs = ','.join([v.split('#')[1]
                                  for v in s_config['virtualservice_refs']])
 
-                output_table.append([s_name, s_uuid, s_tenant, s_cloud, s_seg,
-                                     s_enabled, s_state, s_connected, s_version,
-                                     s_online, s_hs, s_vs])
+                output = [s_name, s_uuid, s_tenant, s_cloud, s_seg, s_enabled,
+                          s_state, s_connected, s_version, s_online, s_hs,
+                          s_vs]
+
+                if inventory_type == 'sedetail':
+                    s_detail = s_details.get(s_uuid, {})
+                    s_vcpu = s_detail.get('num_vcpus', '-')
+                    s_memory = s_detail.get('memory', '-')
+                    s_disk = s_detail.get('disk', '-')
+                    s_qat = s_detail.get('qat_mode', 'QAT_N/A').split('QAT_')[1]
+                    output.extend([s_vcpu, s_memory, s_disk, s_qat])
+
+                output_table.append(output)
 
             headers = ['Name', 'UUID', 'Tenant', 'Cloud', 'SEG', 'State',
                        'Oper State', 'Connectivity', 'Version', 'Online Since',
                        'Health Score', 'Virtual Services']
+
+            if inventory_type == 'sedetail':
+                headers.extend(['vCPUs', 'Memory (MB)', 'Disk (GB)',
+                                'QAT Mode'])
         if csv_filename:
             print(f'Outputting data to {csv_filename}')
             with open(csv_filename, 'w',
