@@ -48,12 +48,15 @@ SPECIAL_OBJECT_NAMES = {'vrfcontext': ['management'],
                         'role': ['Application-Admin', 'Tenant-Admin',
                                  'Application-Operator', 'Security-Admin',
                                  'WAF-Admin'],
-                        'actiongroupconfig': ['Syslog-Audit-Persistence'],
+                        'actiongroupconfig': ['Syslog-Audit-Persistence',
+                                              'Syslog-Config',
+                                              'Syslog-System'],
                         'serviceenginegroup': ['Default-Group'],
                         'vsdatascriptset': ['Default-PASV-FTP',
                                             'Default-ACTIVE-FTP',
                                             'Default-FULL-FTP'],
-                        'alertconfig': ['Syslog-System-Events'],
+                        'alertconfig': ['Syslog-System-Events',
+                                        'Syslog-Config-Events'],
                         'errorpageprofile': ['Custom-Error-Page-Profile']}
 
 DELETE_NEVER = 0
