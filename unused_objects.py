@@ -8,32 +8,33 @@ import getpass
 
 import requests
 import urllib3
-from avi.sdk.avi_api import ApiSession
+import json
+from avi.sdk.avi_api import ApiSession, APIError, ObjectNotFound
 
-OBJECT_TYPES = {'sslkeyandcertificate', 'hardwaresecuritymodulegroup',
-                'dnspolicy', 'stringgroup', 'wafpolicy', 'geodb',
-                'alertscriptconfig', 'pool', 'networkservice', 'application',
-                'ipaddrgroup', 'errorpagebody', 'availabilityzone',
-                'errorpageprofile', 'analyticsprofile', 'sslprofile',
-                'botconfigconsolidator', 'gslbgeodbprofile', 'tenant',
-                'networksecuritypolicy', 'ssopolicy', 'jwtserverprofile',
-                'healthmonitor', 'vsvip', 'cloudconnectoruser', 'botmapping',
-                'pingaccessagent', 'autoscalelaunchconfig', 'actiongroupconfig',
-                'applicationprofile', 'alertsyslogconfig', 'pkiprofile',
-                'vsdatascriptset', 'trafficcloneprofile',
-                'customipamdnsprofile', 'securitypolicy', 'ipreputationdb',
-                'protocolparser', 'serviceenginegroup', 'httppolicyset',
-                'snmptrapprofile', 'applicationpersistenceprofile', 'poolgroup',
-                'serviceengine', 'networkprofile', 'wafcrs',
-                'botdetectionpolicy', 'vcenterserver', 'scheduler', 'network',
-                'webhook', 'alertconfig', 'authmappingprofile',
-                'serverautoscalepolicy', 'icapprofile',
-                'ipamdnsproviderprofile', 'alert', 'labelgroup', 'wafprofile',
-                'vrfcontext', 'l4policyset', 'prioritylabels',
-                'wafpolicypsmgroup', 'natpolicy', 'cloud',
-                'botipreputationtypemapping', 'role', 'authprofile',
-                'alertemailconfig', 'certificatemanagementprofile',
-                'virtualservice', 'gslbservice'}
+OBJECT_TYPES = {'actiongroupconfig', 'alertconfig', 'alertemailconfig',
+                'alertscriptconfig', 'alertsyslogconfig', 'analyticsprofile',
+                'applicationpersistenceprofile', 'applicationprofile',
+                'authmappingprofile', 'authprofile', 'autoscalelaunchconfig',
+                'availabilityzone', 'botconfigconsolidator',
+                'botdetectionpolicy', 'botipreputationtypemapping',
+                'botmapping', 'certificatemanagementprofile', 'cloud',
+                'cloudconnectoruser', 'csrfpolicy', 'customipamdnsprofile',
+                'dnspolicy', 'errorpagebody', 'errorpageprofile', 'geodb',
+                'gslbgeodbprofile', 'gslbservice',
+                'hardwaresecuritymodulegroup', 'healthmonitor', 'httppolicyset',
+                'icapprofile', 'ipaddrgroup', 'ipamdnsproviderprofile',
+                'ipreputationdb', 'jwtserverprofile', 'l4policyset',
+                'labelgroup', 'natpolicy', 'network', 'networkprofile',
+                'networksecuritypolicy', 'networkservice', 'pingaccessagent',
+                'pkiprofile', 'pool', 'poolgroup', 'poolgroupdeploymentpolicy',
+                'prioritylabels', 'protocolparser', 'role', 'scheduler',
+                'securitypolicy', 'serverautoscalepolicy', 'serviceengine',
+                'serviceenginegroup', 'snmptrapprofile', 'sslkeyandcertificate',
+                'sslprofile', 'ssopolicy', 'stringgroup', 'tenant',
+                'trafficcloneprofile', 'useraccountprofile', 'vcenterserver',
+                'virtualservice', 'vrfcontext', 'vsdatascriptset', 'vsvip',
+                'wafcrs', 'wafpolicy', 'wafpolicypsmgroup', 'wafprofile',
+                'webhook'}
 
 EXCLUDE_OBJECT_TYPES = {'virtualservice', 'gslbservice', 'network', 'wafcrs'}
 
@@ -146,21 +147,46 @@ if __name__ == '__main__':
             print('[A]ll = Delete all unused objects of all types')
             print()
 
-        for object_type in object_types:
+        for object_type in sorted(object_types):
             unused_objects = api.get_objects_iter(object_type, tenant=tenant,
                                                   params={
                                                       'referred_by': 'any:none',
                                                       'fields': 'tenant_ref',
                                                       'include_name': True})
-            filtered_unused = [(u_obj['name'],
-                                u_obj.get('tenant_ref', '').split('#')[1],
-                                u_obj['uuid'],
-                                u_obj['url'])
-                               for u_obj in unused_objects
-                               if (include_system or not
-                                   (u_obj['name'].startswith('System-')
-                                    or u_obj['name'] in
-                                    SPECIAL_OBJECT_NAMES.get(object_type, [])))]
+            try:
+                filtered_unused = [(u_obj['name'],
+                                    u_obj.get('tenant_ref', '').split('#')[1],
+                                    u_obj['uuid'],
+                                    u_obj['url'])
+                                for u_obj in unused_objects
+                                if (include_system or not
+                                    (u_obj['name'].startswith('System-')
+                                        or u_obj['name'] in
+                                        SPECIAL_OBJECT_NAMES.get(object_type,
+                                                                 [])))]
+            except APIError as ex:
+                # APIError here will usually be due to the object type being
+                # deprecated. We can silently ignore this error and continue.
+
+                filtered_unused = []
+                try:
+                    err_msg = json.loads(ex.rsp.text)
+                except json.decoder.JSONDecodeError:
+                    err_msg = {'message': 'Unknown error.'}
+                print()
+                print(f'Unable to check for unused {object_type} '
+                      f'objects: {err_msg["message"]}')
+            except ObjectNotFound as ex:
+                # ObjectNotFound means the object type isn't even understood
+                # by the API server, which indicates the object type is
+                # not supported by the Controller version. We can silently
+                # ignore this error and continue.
+
+                filtered_unused = []
+                print()
+                print(f'Unable to check for unused {object_type}: '
+                      'Object type was not found.')
+
             if filtered_unused or not all_objects:
                 print()
                 print(f'Unused {object_type} objects:',
