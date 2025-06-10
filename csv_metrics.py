@@ -51,6 +51,8 @@ if __name__ == '__main__':
                              'm(inutes), h(ours) or d(ays)',
                              default='60m')
     parser.add_argument('-se', '--serviceengine', help='Service Engine Name')
+    parser.add_argument('-seg', '--serviceenginegroup',
+                        help='Service Engine Group Name(case sensitive)')
     parser.add_argument('-vs', '--virtualservice',
                         help='Virtual Service Name')
     parser.add_argument('-a', '--aggregate',
@@ -86,6 +88,7 @@ if __name__ == '__main__':
         vs = args.virtualservice
         pool = args.pool
         se = args.serviceengine
+        seg = args.serviceenginegroup
         aggregate = args.aggregate
         agg_objid = args.aggregateobjid
         metrics = args.metrics.split(',')
@@ -131,6 +134,14 @@ if __name__ == '__main__':
                 print(f'Unable to locate Service Engine "{se}"')
                 exit()
 
+        if seg:
+            seg_obj = api.get_object_by_name('serviceenginegroup', seg,
+                                             tenant=tenant)
+
+            if not seg_obj:
+                print(f'Unable to locate Service Engine Group "{seg}"')
+                exit()
+
         if pool:
             pool_obj = api.get_object_by_name('pool', pool, tenant=tenant)
 
@@ -149,6 +160,8 @@ if __name__ == '__main__':
         # Possible combinations:
         # se only - Retrieve Service Engine Metrics
         # se + aggregate - Aggregated Metrics across SE
+        # seg only - Retrieve Service Engine Metrics
+        # seg + aggregate - Aggregated Metrics across SE
         # vs only - Retrieve Metrics for specified Virtual Service
         # pool only - Retrive Metrics for specified Pool
         # vs + pool - Retrieve Metrics for specified Virtual Service and Pool
@@ -157,18 +170,30 @@ if __name__ == '__main__':
                   'metric_id': ','.join(metrics),
                   'pad_missing_data': pad_data}
 
-        if se and not(vs or pool):
+        if se and not(vs or pool or seg):
             if aggregate:
                 params['aggregate_entity'] = True
                 params['entity_uuid'] = '*'
                 params['service_engine_uuid'] = se_obj['uuid']
             else:
                 params['entity_uuid'] = se_obj['uuid']
-        elif vs and not(se or pool):
+        elif seg and not(vs or pool or se):
+            se_objects = api.get_objects_iter('serviceengine',
+                                              params={'include_name': True,
+                                                      'fields': 'se_group_ref'},
+                                                      tenant=tenant)
+            seg_ses = [s['uuid'] for s in se_objects if s['se_group_ref'].split('#')[1] == seg]
+            if aggregate:
+                params['aggregate_entity'] = True
+                params['entity_uuid'] = '*'
+                params['service_engine_uuid'] = ','.join(seg_ses)
+            else:
+                params['entity_uuid'] = ','.join(seg_ses)
+        elif vs and not(se or pool or seg):
             params['entity_uuid'] = vs_obj['uuid']
-        elif pool and not(vs or se):
+        elif pool and not(vs or se or seg):
             params['entity_uuid'] = pool_obj['uuid']
-        elif not(se) and vs and pool:
+        elif not(se or seg) and vs and pool:
             params['entity_uuid'] = vs_obj['uuid']
             params['pool_uuid'] = pool_obj['uuid']
         else:
