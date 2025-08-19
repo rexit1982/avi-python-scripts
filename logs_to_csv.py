@@ -174,7 +174,6 @@ if __name__ == '__main__':
         params['page_size'] = 10000
 
         total_logs = 0
-        last_results = []
 
         print(f':: Writing to file {filename}...')
 
@@ -182,7 +181,7 @@ if __name__ == '__main__':
             csv_writer = csv.writer(csv_file, dialect='excel')
             csv_writer.writerow(field_names)
 
-            while True:
+            while end_date_time is not None:
                 print(f':: Retrieving up to 10,000 logs from '
                       f'{start_date_time:%c %Z} to '
                       f'{end_date_time:%c %Z}...')
@@ -197,35 +196,32 @@ if __name__ == '__main__':
                     res_count = len(results)
 
                     if res_count > 0:
-                        # To avoid missing logs in an extreme corner-case where
-                        # there are multiple logs with the exact same timestamp
-                        # spanning two consecutive retrievals, we set the
-                        # end time of the query equal to the timestamp of the
-                        # last result of the previous query. This will result
-                        # in an overlap of one or more logs between the two
-                        # queries, so we need to remove this overlap.
-
-                        check = 1
-                        slice_from = 0
-
-                        old_res_count = len(last_results)
-
-                        ts_new = datetime.fromisoformat(
+                        ts_first = datetime.fromisoformat(
                             results[0]['report_timestamp'])
+                        ts_last = datetime.fromisoformat(
+                            results[-1]['report_timestamp'])
 
-                        while check <= res_count and check <= old_res_count:
-                            ts_check = datetime.fromisoformat(
-                                last_results[-check]['report_timestamp'])
-                            if ts_check < ts_new:
-                                break
-                            if results[:check] == last_results[-check:]:
-                                slice_from = check
-
-                            check += 1
-
-                        if slice_from > 0:
-                            results = results[slice_from:]
-                            res_count = len(results)
+                        if ts_first == ts_last:
+                            # All the logs have the same timestamp! This is
+                            # most likely because this iteration returned the
+                            # final few logs, but it could be that there are
+                            # more than 10,000 logs with the same timestamp.
+                            # The latter is...very unlikely!
+                            ts_last = None
+                        else:
+                            # Remove the last N logs with the same timestamp
+                            # so we can iterate the query without missing
+                            # logs or duplicating logs.
+                            check = 1
+                            while True:
+                                ts_check = datetime.fromisoformat(
+                                    results[-check-1]['report_timestamp'])
+                                if ts_check == ts_last:
+                                    check += 1
+                                else:
+                                    break
+                            results = results[:-check]
+                            res_count -= check
 
                     if res_count > 0:
                         print(f'  Got {res_count} logs')
@@ -236,16 +232,17 @@ if __name__ == '__main__':
                                                      for f in field_names]]
                             csv_writer.writerow(vals)
                         total_logs += res_count
-                        last_entry = results[-1]['report_timestamp']
-                        end_date_time = datetime.fromisoformat(last_entry)
-                        last_results = results
+                        total_logs += res_count
+                        end_date_time = ts_last
                     else:
+                        end_date_time = None
+                    if not end_date_time:
                         print(':: No more logs available')
-                        break
                 else:
                     print(f':: Error {r.status_code} {r.text} occurred '
                           f': giving up!')
                     break
+
         print(f':: {total_logs} logs were retrieved')
     else:
         parser.print_help()
