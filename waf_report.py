@@ -59,7 +59,9 @@ if __name__ == '__main__':
         api = ApiSession.get_session(controller, user, password,
                                      api_version=api_version)
 
-        waf_params = {'fields': 'name,uuid,mode,paranoia_level'}
+        waf_params = {'fields': 'name,uuid,mode,paranoia_level,'
+                                'enable_app_learning,positive_security_model',
+                      'include_name': True}
         waf_policies = api.get_objects_iter('wafpolicy', tenant=tenant,
                                             params=waf_params)
 
@@ -69,6 +71,13 @@ if __name__ == '__main__':
             waf_policy_name = waf_policy['name']
             waf_policy_uuid = waf_policy['uuid']
             waf_policy_mode = waf_policy['mode']
+            waf_learning_mode = waf_policy['enable_app_learning']
+            waf_psm = waf_policy.get('positive_security_model', None)
+            if waf_psm:
+                waf_psm_groups = ','.join([grp.split('#')[1]
+                                           for grp in waf_psm['group_refs']])
+            else:
+                waf_psm_groups = 'None'
             waf_policy_paranoia_level = waf_policy['paranoia_level']
             vss = api.get_objects_iter('virtualservice', tenant=tenant,
                                        params={
@@ -78,12 +87,15 @@ if __name__ == '__main__':
             vs_names = ','.join([vs['name'] for vs in vss])
 
             waf_policy_list.append([waf_policy_name, vs_names,
-                                    waf_policy_mode, waf_policy_paranoia_level])
+                                    waf_policy_mode, waf_policy_paranoia_level,
+                                    waf_learning_mode, waf_psm_groups])
 
         print(tabulate(waf_policy_list, headers=['WAF Policy',
                                                  'Virtual Services',
                                                  'Policy Mode',
-                                                 'Paranoia Level'],
+                                                 'Paranoia Level',
+                                                 'Learning',
+                                                 'PSM Groups'],
                        tablefmt='outline'))
 
     else:

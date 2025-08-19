@@ -76,6 +76,30 @@ This will display the last minute's worth of real-time metrics for WAF rule hits
 
 `csv_metrics.py -c <controller> -t example_tenant -vs example_vs -m waf_rule.sum_matched -g realtime -l 1m -o 941170,941171`
 
+## events_to_csv.py
+
+Script to export Controller event logs to a CSV file. Supports retrieving more than 10,000 logs by iteratively querying the Controller.
+
+The `startdatetime` and `enddatetime` parameters are provided in [ISO8601](https://dencode.com/en/date/iso8601) format. If no timezone offset is provided, the UTC offset from the system on which the script is running will be used. Note that logs entries themselves are always timestamped as UTC.
+
+*Examples:*
+
+This will export all event logs from 1st July 2024 12:00AM EDT (UTC -4 hours) to 15th July 2024 12:00PM EDT to the file `./log_export.csv`:
+
+`events_to_csv.py -c <controller> -f ./log_export.csv 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
+
+The export can also be scoped to a particular tenant, for example:
+
+`events_to_csv.py -c <controller> -t example_tenant -f ./log_export.csv 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
+
+A standard log filter string can be passed to filter the returned logs, to export only logs from the CONFIG module (configuration create/delete/update, login/logout etc.)`:
+
+`events_to_csv.py -c <controller> -fs 'eq(module,CONFIG)' -f ./log_export.csv 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
+
+Multiple filters can be combined by repeating the `-fs` parameter. For example to export non-configuration events, excluding events marked as "internal":
+
+`events_to_csv.py -c <controller> -fs 'ne(module,CONFIG)' -fs 'ne(internal,EVENT_INTERNAL) -f ./log_export.csv 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
+
 ## inventory_report.py
 
 This script uses the Inventory APIs to export summary information about VS, Pool or Service Engines to the screen in tabular form, or to a CSV file that can then be used for reporting purposes.
@@ -100,15 +124,15 @@ The `startdatetime` and `enddatetime` parameters are provided in [ISO8601](https
 
 This will export logs for the Virtual Service `example_vs` in the tenant `example_tenant` from 1st July 2024 12:00AM EDT (UTC -4 hours) to 15th July 2024 12:00PM EDT to the file `./log_export.csv`:
 
-`logs_to_csv.py -c <controller> -t example_tenant example_vs 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
+`logs_to_csv.py -c <controller> -t example_tenant -f ./log_export.csv example_vs 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
 
 A standard log filter string can be passed to filter the returned logs, for example this will only export logs where where the `client_ip` is `10.10.10.10`:
 
-`logs_to_csv.py -c <controller> -t example_tenant -fs 'eq(client_ip,"10.10.10.10")' example_vs 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
+`logs_to_csv.py -c <controller> -t example_tenant -fs 'eq(client_ip,"10.10.10.10")' -f ./log_export.csv example_vs 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
 
-Multiple filters can be passed by repeating the `--fs` parameter, for example this will only export logs where the `client_ip` **eq**uals `10.10.10.10` and the `uri_path` **co**ntains the string `/imgs/`:
+Multiple filters can be passed by repeating the `-fs` parameter, for example this will only export logs where the `client_ip` **eq**uals `10.10.10.10` and the `uri_path` **co**ntains the string `/imgs/`:
 
-`logs_to_csv.py -c <controller> -t example_tenant -fs 'eq(client_ip,"10.10.10.10")' -fs 'co(uri_path,"/imgs/")' example_vs 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
+`logs_to_csv.py -c <controller> -t example_tenant -fs 'eq(client_ip,"10.10.10.10")' -fs 'co(uri_path,"/imgs/")' -f ./log_export.csv example_vs 2024-07-01T00:00-04:00 2024-07-15T12:00-04:00`
 
 Valid filter operators (if appropriate for the datatype) are:
 

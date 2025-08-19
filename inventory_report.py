@@ -31,7 +31,8 @@ if __name__ == '__main__':
                         default='admin')
     parser.add_argument('-x', '--apiversion', help='Avi API version')
     parser.add_argument('-i', '--inventorytype',
-                        help='Inventory type (vs, pool, pooldetail, se)',
+                        help='Inventory type (vs, pool, pooldetail, '
+                             'se, sedetail)',
                         choices=['vs', 'pool', 'pooldetail', 'se', 'sedetail'],
                         default='vs')
     parser.add_argument('-f', '--file', help='Output to named CSV file ')

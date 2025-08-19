@@ -5,7 +5,6 @@
 import argparse
 import csv
 import getpass
-import time
 from datetime import datetime, timezone
 from os import devnull
 
@@ -36,19 +35,8 @@ if __name__ == '__main__':
                         default='admin')
     parser.add_argument('-x', '--apiversion', help='Avi API version')
     parser.add_argument('-f', '--filename', help='Output to named CSV file')
-    parser.add_argument('-in', '--includenonsignificantlogs',
-                        help='Include non-significant logs',
-                        action='store_true')
-    parser.add_argument('-iu', '--includeuserdefinedlogs',
-                        help='Include user-defined logs',
-                        action='store_true')
-    parser.add_argument('-es', '--excludesignificantlogs',
-                        help='Exclude significant logs',
-                        action='store_true')
     parser.add_argument('-fs', '--filterstring', help='Filter String',
                         action='append')
-    parser.add_argument('virtualservice',
-                        help='Name of the Virtual Service')
     parser.add_argument('startdatetime',
                         help='Start date and time for exported logs '
                              'in ISO8601 format, e.g. 2024-01-01T00:00.')
@@ -67,13 +55,10 @@ if __name__ == '__main__':
         password = args.password
         tenant = args.tenant
         api_version = args.apiversion
-        vs_name = args.virtualservice
         filename = args.filename or devnull
         filterstrings = args.filterstring
 
-        params = {'nf': bool(args.includenonsignificantlogs),
-                  'adf': not bool(args.excludesignificantlogs),
-                  'udf': bool(args.includeuserdefinedlogs)}
+        params = { 'type': 2 }
 
         start_date_time = (datetime.fromisoformat(args.startdatetime)
                            .astimezone(timezone.utc))
@@ -96,82 +81,19 @@ if __name__ == '__main__':
         api = ApiSession.get_session(controller, user, password,
                                      api_version=api_version)
 
-        print(f'Locating Virtual Service {vs_name}...')
+        field_names = ['report_timestamp', 'obj_type', 'event_id',
+                       'module', 'internal', 'context' 'obj_uuid',
+                       'obj_name', 'event_details']
 
-        vs_obj = api.get_object_by_name('virtualservice', name=vs_name,
-                                        tenant=tenant,
-                                        params={'fields': 'uuid'})
-
-        if not vs_obj:
-            print(f'Unable to locate Virtual Service "{vs_name}"')
-            exit()
-
-        # First, we make a dummy request for logs using the "download" option
-        # which returns a CSV file from which we can extract the column headers
-        # which will be the set of valid log field names as these will vary
-        # depending on software version.
-
-        params['virtualservice'] = vs_obj['uuid']
-        params['download'] = True
-        params['page_size'] = 1
+        params['page_size'] = 10000
         params['page'] = 1
-        params['duration'] = 1
-        params['query_id'] = get_query_id()
-
-        print(':: Retrieving log field names...')
-        r = api.get('analytics/logs', tenant=tenant, params=params)
-        if r.status_code == 200:
-            field_names = r.text.splitlines(False)[0].split(',')
-        else:
-            print('  Unable to obtain log field names : giving up!')
-            exit()
-
-        print(f'  Found {len(field_names)} fields.')
-
-        # Make report_timestamp the first column in the output
-        field_names.remove('report_timestamp')
-        field_names.insert(0, 'report_timestamp')
-
+        params['type'] = 2
         params['start'] = start_date_time.isoformat(timespec='microseconds')
         params['end'] = end_date_time.isoformat(timespec='microseconds')
-        params['download'] = False
         params['format'] = 'json'
-        params.pop('duration', None)
-
-        # Next, we need to wait for the logs to be fully indexed.
-        # We do this by repeatedly requesting the logs for the entire
-        # requested time range but only asking for a single log entry.
-        # The Controller will return the data including a percent_remaining
-        # field which indicates the percentage of logs within the requested
-        # date range remain to be indexed. We keep looping, with a delay
-        # proportional to percent_remaining until percent_remaining == 0.
-
-        print(':: Making sure logs have been indexed...')
-
-        while True:
-            params['query_id'] = get_query_id()
-
-            r = api.get('analytics/logs', tenant=tenant, params=params)
-            if r.status_code == 200:
-                r_data = r.json()
-                percent_remaining = r_data['percent_remaining']
-                if percent_remaining == 0.0:
-                    print('  Logs are indexed')
-                    break
-
-                print(f'  Logs are being indexed : '
-                      f'{percent_remaining}% remaining...')
-                time.sleep(percent_remaining / 10)
-            else:
-                print('  Error while waiting for log indexing : giving up!')
-                exit()
-
-        # Now that the logs are indexed, we can iteratively retrieve all
-        # the required logs from the entire requested time range.
 
         if filterstrings:
             params['filter'] = filterstrings
-        params['page_size'] = 10000
 
         total_logs = 0
         last_results = []
@@ -197,13 +119,13 @@ if __name__ == '__main__':
                     res_count = len(results)
 
                     if res_count > 0:
-                        # To avoid missing logs in an extreme corner-case where
-                        # there are multiple logs with the exact same timestamp
-                        # spanning two consecutive retrievals, we set the
-                        # end time of the query equal to the timestamp of the
-                        # last result of the previous query. This will result
-                        # in an overlap of one or more logs between the two
-                        # queries, so we need to remove this overlap.
+                        # To avoid missing logs when there are multiple logs
+                        # with the same timestamp spanning two consecutive
+                        # retrievals, we set the end time of the query equal to
+                        # the timestamp of the last result of the previous
+                        # query. This will result in an overlap of one or more
+                        # logs between the two queries, so we need to remove
+                        # this overlap.
 
                         check = 1
                         slice_from = 0
