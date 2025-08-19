@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Script to export Virtual Service Client Logs to a CSV file."""
+"""Script to export Controller Event Logs to a CSV file."""
 
 import argparse
 import csv
