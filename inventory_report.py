@@ -43,6 +43,7 @@ if __name__ == '__main__':
         # If not specified on the command-line, prompt the user for the
         # controller IP address and/or password
 
+
         controller = args.controller
         user = args.user
         password = args.password

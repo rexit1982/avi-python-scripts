@@ -232,7 +232,6 @@ if __name__ == '__main__':
                                                      for f in field_names]]
                             csv_writer.writerow(vals)
                         total_logs += res_count
-                        total_logs += res_count
                         end_date_time = ts_last
                     else:
                         end_date_time = None

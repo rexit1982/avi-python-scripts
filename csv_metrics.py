@@ -201,7 +201,7 @@ if __name__ == '__main__':
                 metric_name = metric['header']['name']
                 metric_unit = metric['header']['units']
                 headers.append(f'{metric_name} in {metric_unit}')
-                data = metric['data']
+                data = metric.get('data', [])
                 for data_point in data:
                     timestamp = data_point['timestamp']
                     if timestamp not in output:
