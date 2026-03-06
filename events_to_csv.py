@@ -82,7 +82,7 @@ if __name__ == '__main__':
                                      api_version=api_version)
 
         field_names = ['report_timestamp', 'obj_type', 'event_id',
-                       'module', 'internal', 'context' 'obj_uuid',
+                       'module', 'internal', 'context', 'obj_uuid',
                        'obj_name', 'event_details']
 
         params['page_size'] = 10000
