@@ -40,11 +40,25 @@ This will reconfigure all Virtual Services within the specified tenant that are 
 
 This will reconfigure all Virtual Services *except* "specialvs1" and "specialvs2" within the specified tenant that are currently using the SE Group "Default-Group" to use the SE Group "DMZ-Group":
 
-`bulk_change_seg.py -c <controller> -t demo-tenant -e "specialvs1","specialvs2" Default-Group DMZ-Group`
+`bulk_change_seg.py -c <controller> -t demo-tenant -e "specialvs1,specialvs2" Default-Group DMZ-Group`
 
 This will reconfigure *only* the Virtual Services named "specialvs1" and "specialvs2" within the specified tenant that are currently using the SE Group "Default-Group" to use the SE Group "DMZ-Group":
 
-`bulk_change_seg.py -c <controller> -t demo-tenant -i "specialvs1","specialvs2" Default-Group DMZ-Group`
+`bulk_change_seg.py -c <controller> -t demo-tenant -i "specialvs1,specialvs2" Default-Group DMZ-Group`
+
+## bulk_change_vs.py
+
+Bulk updates configuration of multiple Virtual Services using a PATCH operation.
+
+*Examples:*
+
+This will reconfigure all Virtual Services within the specified tenant to enable the "revoke_vip_route" flag across all Virtual Services within the specified tenant and in the cloud "Default_Cloud":
+
+`bulk_change_vs.py -c <controller> -t demo-tenant '{"json_patch": [{"op": "replace", "path": "/revoke_vip_route", "value": true}]}' --filter "cloud_ref.name=Default-Cloud"`
+
+This will disable the Client Insights across all Virtual Services in the specified tenant that have it enabled, but excluding the VSs "specialvs1" and "specialvs2":
+
+`bulk_change_vs.py -c <controller> -t demo-tenant '{"json_patch": [{"op": "replace", "path": '/analytics_policy/client_insights', "value": "NO_INSIGHTS"}]}' --filter "search=(client_insights,IVE)" -e "specialvs1,specialvs2"`
 
 ## csv_metrics.py
 
