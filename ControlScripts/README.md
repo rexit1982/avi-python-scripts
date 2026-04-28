@@ -31,6 +31,11 @@ Example scheduler configuration:
 
 When the script is run, it will display output to the EVENTS log (including if there were no Virtual Services found with CI enabled or if there were any API errors), but you must enable the "Include Internal" filter to see these events
 
+## revoke_vip route_alert.py
+
+This ControlScript should be triggered to run on the VS_UP EVENT and will automatically set the revoke_vip_route value to true for that VS if it is currently false and is on an NSX-T cloud.
+
+
 ## sticky_pool_group.py
 
 When the highest-priority pool in a pool group fails, traffic fails over to a "secondary" pool in the group with the next-highest priority. When the highest-priority pool comes back up, standard behaviour is that new connections/requests will start being sent to this pool again. In some cases, the customer may prefer for the failover to be "sticky", for example to allow some investigation into the cause of the failure before manually failing back.
