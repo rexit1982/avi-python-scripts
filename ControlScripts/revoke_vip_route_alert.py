@@ -62,7 +62,7 @@ if __name__ == '__main__':
         vs = resp.json()
 
         # Safely check the cloud type
-        if vs.get('cloud_type') != 'NSXT_CLOUD':
+        if vs.get('cloud_type') != 'CLOUD_NSXT':
             print("VS is not in an NSX-T Cloud. Exiting.")
             sys.exit()  
         
